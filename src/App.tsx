@@ -1,0 +1,94 @@
+import React, { useEffect, Suspense, lazy } from 'react'
+import { BrowserRouter as Router, Redirect, Route, Switch } from 'react-router-dom'
+import { useWallet } from '@binance-chain/bsc-use-wallet'
+import { Link, ResetCSS } from '@pancakeswap-libs/uikit'
+import useToast from 'hooks/useToast'
+import BigNumber from 'bignumber.js'
+import { useFetchPublicData } from 'state/hooks'
+import Endowment from 'views/Vaults/Endowment'
+import styled from 'styled-components'
+import TagManager from 'react-gtm-module'
+import { ToastListener } from './contexts/ToastsContext'
+import Menu from './components/Menu'
+import PageLoader from './components/PageLoader'
+import NftGlobalNotification from './views/Nft/components/NftGlobalNotification'
+import GlobalStyle from './style/Global'
+
+
+const tagManagerArgs = {
+    gtmId: 'GTM-55C2WWJ'
+}
+
+TagManager.initialize(tagManagerArgs)
+
+
+// Route-based code splitting
+// Only pool is included in the main bundle because of it's the most visited page'
+const Home = lazy(() => import('./views/Home'))
+const Farms = lazy(() => import('./views/Farms'))
+const Vaults = lazy(() => import('./views/Vaults'))
+const NotFound = lazy(() => import('./views/NotFound'))
+
+
+let didAskToJoinTelegram = false;
+
+// This config is required for number formatting
+BigNumber.config({
+  EXPONENTIAL_AT: 1000,
+  DECIMAL_PLACES: 80,
+})
+
+const App: React.FC = () => {
+  const { account, connect } = useWallet()
+  useEffect(() => {
+    if (!account && window.localStorage.getItem('accountStatus')) {
+      connect('injected')
+    }
+  }, [account, connect])
+
+  useFetchPublicData()
+
+  const { toastSuccess} = useToast()
+  if (Math.random() < 0.3 && !didAskToJoinTelegram){
+    const action = {text:"Join now", url:"https://t.me/polyvertex"}
+    toastSuccess("Have you joined our Telegram community?", "Come chat with us!", action);
+  }
+  didAskToJoinTelegram = true;
+  
+    
+
+  return (
+    <Router>
+      <ResetCSS />
+      <GlobalStyle />
+      <Menu>
+        <Suspense fallback={<PageLoader />}>
+          <Switch>
+            <Route path="/" exact>
+              <Home />
+            </Route>
+            <Route path="/farms">
+              <Farms />
+            </Route>
+            <Route path="/nests">
+              <Farms tokenMode/>
+            </Route>
+            <Route path="/vaults">
+             <Vaults />
+            </Route>
+            {/* <Route path="/endowment">
+             <Endowment />
+            </Route> */}
+            <Route component={NotFound} />
+          </Switch>
+
+        </Suspense>
+      </Menu>
+      {/* <NftGlobalNotification /> */}
+      <ToastListener />
+    </Router>
+  )
+}
+
+
+export default React.memo(App)

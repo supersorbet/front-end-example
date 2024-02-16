@@ -1,0 +1,82 @@
+import { useCallback } from 'react'
+import { useWallet } from '@binance-chain/bsc-use-wallet'
+import { useDispatch } from 'react-redux'
+import { fetchFarmUserDataAsync, updateUserStakedBalance, updateUserBalance } from 'state/actions'
+import useToast from 'hooks/useToast'
+
+import { stake, sousStake, sousStakeBnb, vaultStake } from 'utils/callHelpers'
+import { useMasterchef, useSousChef, useVaultChef } from './useContract'
+
+const useStake = (pid: number) => {
+  const dispatch = useDispatch()
+  const { account } = useWallet()
+  const masterChefContract = useMasterchef()
+  const { toastError, toastSuccess } = useToast()
+
+  const handleStake = useCallback(
+    async (amount: string, decimals: number) => {
+      try {
+        const txHash = await stake(masterChefContract, pid, amount, account, decimals)
+        dispatch(fetchFarmUserDataAsync(account))
+        console.info(txHash)
+        toastSuccess("Success","Staking transaction confirmed")
+      } catch (e) {
+        toastError("An error occurred.", `Transaction unsuccessful, please try again`);
+      }
+    },
+    [account, dispatch, masterChefContract, pid, toastSuccess, toastError],
+  )
+
+  return { onStake: handleStake }
+}
+
+export const useSousStake = (sousId, isUsingBnb = false) => {
+  const dispatch = useDispatch()
+  const { account } = useWallet()
+  const masterChefContract = useMasterchef()
+  const sousChefContract = useSousChef(sousId)
+
+  const handleStake = useCallback(
+    async (amount: string) => {
+      if (sousId === 0) {
+        await stake(masterChefContract, 0, amount, account)
+      } else if (isUsingBnb) {
+        await sousStakeBnb(sousChefContract, amount, account)
+      } else {
+        await sousStake(sousChefContract, amount, account)
+      }
+      dispatch(updateUserStakedBalance(sousId, account))
+      dispatch(updateUserBalance(sousId, account))
+    },
+    [account, dispatch, isUsingBnb, masterChefContract, sousChefContract, sousId],
+  )
+
+  return { onStake: handleStake }
+}
+
+
+const useVaultStake = (pid: number) => {
+  const dispatch = useDispatch()
+  const { account } = useWallet()
+  const vaultChefContract = useVaultChef()
+  const { toastError, toastSuccess } = useToast()
+
+  const handleStake = useCallback(
+    async (amount: string, decimals: number) => {
+      try {
+        const txHash = await vaultStake(vaultChefContract, pid, amount, account, decimals)
+        dispatch(fetchFarmUserDataAsync(account))
+        console.info(txHash)
+        toastSuccess("Success","Staking transaction confirmed")
+      } catch (e) {
+        toastError("An error occurred.", `Transaction unsuccessful or still pending, please try again`);
+      }
+    },
+    [account, dispatch, vaultChefContract, pid, toastSuccess, toastError],
+  )
+
+  return { onStake: handleStake }
+}
+
+
+export {useStake as default, useVaultStake}
